@@ -1,3 +1,4 @@
+//this is used to create some records in the mongo database using cities.js and seedHalpers.js
 const mongoose = require('mongoose');
 const cities = require('./cities');
 const {places , descriptors} = require('./seedHelpers');

@@ -2,11 +2,12 @@ const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const ejsMate = require('ejs-mate');
-const {campgroundSchema} = require('./scheemas'); // scheemas uses joi - tool for validating errors in JavaScript (not express specific) docs: https://joi.dev/api/?v=17.7.0
+const {campgroundSchema, reviewSchema} = require('./scheemas'); // scheemas uses joi - tool for validating errors in JavaScript (not express specific) docs: https://joi.dev/api/?v=17.7.0
 const catchAsync = require('./utils/catchAsync');
 const methodOverride = require('method-override');  //to be able to use put, patch or delete methods requests from the forms ejs templates (forms only send get or post request from the browser)
 const Campground = require('./models/campground');
 const ExpressError = require('./utils/ExpressError');
+const Review = require('./models/review');
 
 mongoose.connect('mongodb://localhost:27017/yelp-camp')
     .then(() => {
@@ -26,9 +27,20 @@ app.set('views', path.join(__dirname,'views'));
 app.use(express.urlencoded({ extended: true}));  //we need this so it can parse the body of the request when creating a new entry (campground)
 app.use(methodOverride('_method'));  //we need this to make a put requests form the ejs templates form (mostly for the edit put request)
 
-//validate campground acts as a middleware for validating errors 
+//validate campground acts as a middleware for validation errors 
 const validateCampground = (req,res,next) => {
     const {error} = campgroundSchema.validate(req.body);
+    if (error){
+        const msg = error.details.map(el => el.message).join(',');
+        throw  new ExpressError(msg, 400)
+    } else {
+        next()
+    }
+}
+
+//validate review acts as a middleware for validation errors 
+const validateReview = (req,res,next) => {
+    const {error} = reviewSchema.validate(req.body);
     if (error){
         const msg = error.details.map(el => el.message).join(',');
         throw  new ExpressError(msg, 400)
@@ -74,14 +86,14 @@ app.post('/campgrounds', validateCampground ,catchAsync(async (req,res) => {
  
 //details page  - show page
 app.get('/campgrounds/:id', catchAsync(async (req, res) => {
-    const campground = await Campground.findById(req.params.id);
+    const campground = await Campground.findById(req.params.id).populate('reviews'); //populate must be called to show the reviews, bc campground only has ObjectIDs refering to the reviews model
     res.render('campgrounds/show' , {campground});
 }))  
 
 //edit route -edit page
 //>>
 app.get('/campgrounds/:id/edit', catchAsync(async (req, res) => {
-    const campground = await Campground.findById(req.params.id)
+    const campground = await Campground.findById(req.params.id);
     res.render('campgrounds/edit', { campground });
 }))
 
@@ -98,6 +110,24 @@ app.delete('/campgrounds/:id', catchAsync(async (req,res) => {
     const {id} = req.params;
     await Campground.findByIdAndDelete(id);
     res.redirect('/campgrounds')
+}))
+
+//route for the reviews
+app.post('/campgrounds/:id/reviews' ,validateReview , catchAsync(async (req,res)=>{
+    const campground = await Campground.findById(req.params.id);
+    const review = new Review(req.body.review);
+    campground.reviews.push(review);
+    await review.save();
+    await campground.save();
+    res.redirect(`/campgrounds/${campground._id}`);
+}))
+
+//route for deleting the reviews
+app.delete('/campgrounds/:id/reviews/:reviewId', catchAsync(async(req,res)=>{
+    const {id , reviewId} = req.params
+    await Campground.findByIdAndUpdate(id, { $pull: { reviews: reviewId}}); //pull form the reviews array where we have the concrete reviewId, so it deletes the ObjectReferences in campground -> https://www.mongodb.com/docs/manual/reference/operator/update/pull/
+    await Review.findByIdAndDelete(reviewId);
+    res.redirect(`/campgrounds/${id}`)
 }))
 
 //this will only run if non of the previous routes didn't respond with anything!!! order is important!

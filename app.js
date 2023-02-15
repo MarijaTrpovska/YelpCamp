@@ -2,12 +2,16 @@ const express = require('express');
 const path = require('path');
 const mongoose = require('mongoose');
 const ejsMate = require('ejs-mate');
-const {campgroundSchema, reviewSchema} = require('./scheemas'); // scheemas uses joi - tool for validating errors in JavaScript (not express specific) docs: https://joi.dev/api/?v=17.7.0
-const catchAsync = require('./utils/catchAsync');
-const methodOverride = require('method-override');  //to be able to use put, patch or delete methods requests from the forms ejs templates (forms only send get or post request from the browser)
-const Campground = require('./models/campground');
+const session = require('express-session');
+const flash = require('connect-flash');
 const ExpressError = require('./utils/ExpressError');
-const Review = require('./models/review');
+const methodOverride = require('method-override');  //to be able to use put, patch or delete methods requests from the forms ejs templates (forms only send get or post request from the browser)
+
+const campgrounds = require('./routes/campgrounds')
+const reviews = require('./routes/reviews')
+
+
+mongoose.set('strictQuery', false);
 
 mongoose.connect('mongodb://localhost:27017/yelp-camp')
     .then(() => {
@@ -18,6 +22,8 @@ mongoose.connect('mongodb://localhost:27017/yelp-camp')
         console.log(err)
     })
 
+
+  
 const app = express();
 
 app.engine('ejs', ejsMate);
@@ -26,109 +32,37 @@ app.set('views', path.join(__dirname,'views'));
 
 app.use(express.urlencoded({ extended: true}));  //we need this so it can parse the body of the request when creating a new entry (campground)
 app.use(methodOverride('_method'));  //we need this to make a put requests form the ejs templates form (mostly for the edit put request)
+app.use(express.static(path.join(__dirname,'public')))
 
-//validate campground acts as a middleware for validation errors 
-const validateCampground = (req,res,next) => {
-    const {error} = campgroundSchema.validate(req.body);
-    if (error){
-        const msg = error.details.map(el => el.message).join(',');
-        throw  new ExpressError(msg, 400)
-    } else {
-        next()
+const sessionConfig = {
+    secret: 'thisshouldbeabettersecret',
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        httpOnly: true,
+        expires: Date.now() + 1000 * 60 * 60 * 24 * 7, // expires in a week, the calculation is in miliseconds because Date.now() is a function in miliseconds
+        maxAge: 1000 * 60 * 60 * 24 * 7
     }
 }
+app.use(session(sessionConfig));
+app.use(flash());
 
-//validate review acts as a middleware for validation errors 
-const validateReview = (req,res,next) => {
-    const {error} = reviewSchema.validate(req.body);
-    if (error){
-        const msg = error.details.map(el => el.message).join(',');
-        throw  new ExpressError(msg, 400)
-    } else {
-        next()
-    }
-}
+app.use((req,res,next)=>{
+    res.locals.success = req.flash('success');
+    res.locals.error = req.flash('error');
+    next();
+})
+
+app.use('/campgrounds', campgrounds);  //using router for the campground routes
+app.use('/campgrounds/:id/reviews', reviews) //using router for reviews
 
 //home page
 app.get('/', (req,res) => {
     res.render('home')
 })
 
-//show case of CRUD functionality:
-
-//list of all campground
-app.get('/campgrounds', catchAsync(async (req, res) => { 
-    const campgrounds = await Campground.find({});
-    res.render('campgrounds/index', { campgrounds })
-}));
-
-//create route
-//create new entry - new entry page and create route 
-//this part has to be before the details page (see below) because the new route will try to find anythig under the id of the show page if the show page get was before this code 
-//order matters in this case
-//>>
-app.get('/campgrounds/new', (req,res) => {
-    res.render('campgrounds/new');
-})
-
-//the form new is submitted to:
-//validateCampground can be called as a middleware as the second parametar of the post function for validation errors  
-app.post('/campgrounds', validateCampground ,catchAsync(async (req,res) => {
-    //res.send(req.body); //this will be empty if we dont use app.use(express.urlencoded({ extended: true})); like we have it above
-    //finally the request will look like this: {"campground":{"title":"test camp name","location":"test camp location"}}
 
 
-    const campground = new Campground(req.body.campground);
-    await campground.save();
-    res.redirect(`/campgrounds/${campground._id}`);
-}))
-//<<
- 
-//details page  - show page
-app.get('/campgrounds/:id', catchAsync(async (req, res) => {
-    const campground = await Campground.findById(req.params.id).populate('reviews'); //populate must be called to show the reviews, bc campground only has ObjectIDs refering to the reviews model
-    res.render('campgrounds/show' , {campground});
-}))  
-
-//edit route -edit page
-//>>
-app.get('/campgrounds/:id/edit', catchAsync(async (req, res) => {
-    const campground = await Campground.findById(req.params.id);
-    res.render('campgrounds/edit', { campground });
-}))
-
-app.put('/campgrounds/:id',validateCampground ,catchAsync(async (req,res) => {
-    const {id} = req.params; //same as writing -> const id = req.params.id;
-    const campground = await Campground.findByIdAndUpdate(id, req.body.campground /* , { runValidators: true, new: true } */); //or you can write it like below:
-    //const campground = await Campground.findByIdAndUpdate(id, {...req.body.campground}); // we can use the spread operator here because we group things under "campground" in edit.ejs , look at: name="campground[title]" , name="campground[location]"
-    res.redirect(`/campgrounds/${campground._id}`);
-}))
-//<<
-
-//delete route 
-app.delete('/campgrounds/:id', catchAsync(async (req,res) => {
-    const {id} = req.params;
-    await Campground.findByIdAndDelete(id);
-    res.redirect('/campgrounds')
-}))
-
-//route for the reviews
-app.post('/campgrounds/:id/reviews' ,validateReview , catchAsync(async (req,res)=>{
-    const campground = await Campground.findById(req.params.id);
-    const review = new Review(req.body.review);
-    campground.reviews.push(review);
-    await review.save();
-    await campground.save();
-    res.redirect(`/campgrounds/${campground._id}`);
-}))
-
-//route for deleting the reviews
-app.delete('/campgrounds/:id/reviews/:reviewId', catchAsync(async(req,res)=>{
-    const {id , reviewId} = req.params
-    await Campground.findByIdAndUpdate(id, { $pull: { reviews: reviewId}}); //pull form the reviews array where we have the concrete reviewId, so it deletes the ObjectReferences in campground -> https://www.mongodb.com/docs/manual/reference/operator/update/pull/
-    await Review.findByIdAndDelete(reviewId);
-    res.redirect(`/campgrounds/${id}`)
-}))
 
 //this will only run if non of the previous routes didn't respond with anything!!! order is important!
 app.all('*', (req,res, next)=>{

@@ -6,9 +6,13 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const ExpressError = require('./utils/ExpressError');
 const methodOverride = require('method-override');  //to be able to use put, patch or delete methods requests from the forms ejs templates (forms only send get or post request from the browser)
+const passport = require('passport');
+const LocalStrategy = require('passport-local');
+const User = require('./models/user');
 
-const campgrounds = require('./routes/campgrounds')
-const reviews = require('./routes/reviews')
+const userRoutes = require('./routes/users')
+const campgroundRoutes = require('./routes/campgrounds')
+const reviewRoutes = require('./routes/reviews')
 
 
 mongoose.set('strictQuery', false);
@@ -47,14 +51,25 @@ const sessionConfig = {
 app.use(session(sessionConfig));
 app.use(flash());
 
+app.use(passport.initialize());
+app.use(passport.session()); //for persistant log in sessions, other option is to log in in every single request (which is used in APIs but not as a user), use this after sessiong configuration (app.use(session(sessionConfig));)
+passport.use(new LocalStrategy(User.authenticate()));
+
+passport.serializeUser(User.serializeUser());  //store the user in the session
+passport.deserializeUser(User.deserializeUser()); //unstore the user from the session
+
+
 app.use((req,res,next)=>{
+    res.locals.currentUser = req.user;
     res.locals.success = req.flash('success');
     res.locals.error = req.flash('error');
     next();
 })
 
-app.use('/campgrounds', campgrounds);  //using router for the campground routes
-app.use('/campgrounds/:id/reviews', reviews) //using router for reviews
+app.use('/', userRoutes); // using router for the user routes 
+app.use('/campgrounds', campgroundRoutes);  //using router for the campground routes
+app.use('/campgrounds/:id/reviews', reviewRoutes) //using router for reviews
+
 
 //home page
 app.get('/', (req,res) => {

@@ -9,6 +9,10 @@ const CampgroundScheema = new Schema({
     price: Number,
     description: String,
     location: String,
+    author: {
+        type: Schema.Types.ObjectID,
+        ref: 'User'
+    },
     reviews: [
         {
             type: Schema.Types.ObjectID,  //Scheema =  mongoose.scheema look up
@@ -18,7 +22,7 @@ const CampgroundScheema = new Schema({
 });
 
 //middleware for deleting the related reviews when deleting the campground
-/* we are using the model Model.findByIdAndDelete() when deleting a campground see in app.js file on delete route for campground
+/* I'm using the model Model.findByIdAndDelete() when deleting a campground see in app.js file on delete route for campground
 in the mongoose documentation https://mongoosejs.com/docs/api/model.html#model_Model-findByIdAndDelete
 this fucntion triggers the following middleware : indOneAndDelete()
 so we can use this one to delete the reviews out of the deleted campground as well, in the following way:

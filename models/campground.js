@@ -3,9 +3,20 @@ const mongoose = require('mongoose');
 const Review = require('./review')
 const Schema = mongoose.Schema;
 
+// https://res.cloudinary.com/dmpovndvi/image/upload/w_300/v1678718629/YelpCamp/marzayd5tdme5msb1ajj.jpg  --> w_300 this part of the url is a feature from cloudinary so if you put this in this exact position you will get a thumbnail of the photo with 300 size
+
+const ImageSchema =  new Schema({
+    url: String,
+    filename: String
+})
+
+ImageSchema.virtual('thumbnail').get(function(){
+    return this.url.replace('/upload', '/upload/w_200')
+})
+
 const CampgroundScheema = new Schema({
     title: String,
-    image: String,
+    images: [ImageSchema],
     price: Number,
     description: String,
     location: String,

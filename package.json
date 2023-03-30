@@ -17,6 +17,7 @@
   },
   "homepage": "https://github.com/MarijaTrpovska/YelpCamp#readme",
   "dependencies": {
+    "@mapbox/mapbox-sdk": "^0.15.0",
     "cloudinary": "^1.35.0",
     "connect-flash": "^0.1.1",
     "dotenv": "^16.0.3",

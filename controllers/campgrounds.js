@@ -1,5 +1,8 @@
 const Campground = require('../models/campground');
-const { cloudinary } = require("../cloudinary");
+const mbxGeocoding = require("@mapbox/mapbox-sdk/services/geocoding"); //https://github.com/mapbox/mapbox-sdk-js
+const mapBoxToken = process.env.MAPBOX_TOKEN;
+const geocoder = mbxGeocoding({ accessToken: mapBoxToken});  //https://github.com/mapbox/mapbox-sdk-js/blob/main/docs/services.md#geocoding
+const { cloudinary } = require("../cloudinary"); 
 
 module.exports.index = async (req, res) => { 
     const campgrounds = await Campground.find({});
@@ -14,7 +17,15 @@ module.exports.createCampground = async (req,res) => {
     //res.send(req.body); //this will be empty if we dont use app.use(express.urlencoded({ extended: true})); like we have it above
     //finally the request will look like this: {"campground":{"title":"test camp name","location":"test camp location"}}
     
+    const geoData = await geocoder.forwardGeocode({
+        query: req.body.campground.location,
+        limit: 1
+    }).send();
+    //console.log(geoData); //too see what we have in the response
+    //console.log(geoData.body.features);  // to see what we have in the features of response
+    //console.log(geoData.body.features[0].geometry.coordinates); //to get the coordinates
     const campground = new Campground(req.body.campground);
+    campground.geometry = geoData.body.features[0].geometry;
     campground.images = req.files.map(f => ({url: f.path, filename: f.filename}));
     campground.author = req.user._id; //req.user is automatically added with passport
     await campground.save();

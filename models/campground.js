@@ -4,6 +4,7 @@ const Review = require('./review')
 const Schema = mongoose.Schema;
 
 // https://res.cloudinary.com/dmpovndvi/image/upload/w_300/v1678718629/YelpCamp/marzayd5tdme5msb1ajj.jpg  --> w_300 this part of the url is a feature from cloudinary so if you put this in this exact position you will get a thumbnail of the photo with 300 size
+ 
 
 const ImageSchema =  new Schema({
     url: String,
@@ -14,9 +15,22 @@ ImageSchema.virtual('thumbnail').get(function(){
     return this.url.replace('/upload', '/upload/w_200')
 })
 
+const opts = { toJSON: { virtuals: true } };
+
 const CampgroundScheema = new Schema({
     title: String,
     images: [ImageSchema],
+    geometry: {   //https://mongoosejs.com/docs/geojson.html 
+        type: {
+          type: String, // Don't do `{ location: { type: String } }`
+          enum: ['Point'], // 'location.type' must be 'Point'
+          required: true
+        },
+        coordinates: {
+          type: [Number],
+          required: true
+        }
+      },
     price: Number,
     description: String,
     location: String,
@@ -30,7 +44,15 @@ const CampgroundScheema = new Schema({
             ref: 'Review'
         }
     ]
-});
+}, opts ) ;
+
+
+CampgroundScheema.virtual('properties.popUpMarkup').get(function() {
+    return `
+        <strong><a href="/campgrounds/${this._id}">${this.title}</a><strong>
+        <p>${this.description.substring(0,30)}...</p>
+        `
+})
 
 //middleware for deleting the related reviews when deleting the campground
 /* I'm using the model Model.findByIdAndDelete() when deleting a campground see in app.js file on delete route for campground

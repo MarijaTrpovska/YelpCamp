@@ -3,7 +3,7 @@
 
 <div class="row">
     <div class="col-6">
-
+      <!-- <div id='map' style='width: 400px; height: 300px;'></div> -->
       <div id="carouselExample" class="carousel slide">
         <div class="carousel-inner">
           <% campground.images.forEach((img , i) => { %>
@@ -48,6 +48,7 @@
         </div>
     </div>
     <div class="col-6">
+      <div id='map' style='width: 400px; height: 300px;'></div>
       <% if (currentUser) { %>
       <h2>Leave a review</h2>
       <form action="/campgrounds/<%=campground._id%>/reviews" method="post" class="mb-3 validated-form" novalidate>  <!-- novalidate and class validated-form to trigger the validation that I have added  -->
@@ -99,7 +100,12 @@
     </div>
 </div>
 
+<script>
+  const mapToken =  '<%-process.env.MAPBOX_TOKEN %>';
+  const campground = <%-JSON.stringify(campground) %>
+</script>
 
+<script src="/javascripts/showPageMap.js"></script>
 
 <!-- <footer>
     <a href="/campgrounds">All campgrounds</a>

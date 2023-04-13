@@ -17,14 +17,19 @@ const LocalStrategy = require('passport-local');
 const User = require('./models/user');
 const mongoSanitize = require('express-mongo-sanitize'); //for prevention of mongo injection   // https://www.npmjs.com/package/express-mongo-sanitize
 const helmet = require('helmet');  //security tool
-const userRoutes = require('./routes/users')
-const campgroundRoutes = require('./routes/campgrounds')
-const reviewRoutes = require('./routes/reviews')
+const userRoutes = require('./routes/users');
+const campgroundRoutes = require('./routes/campgrounds');
+const reviewRoutes = require('./routes/reviews');
 
+const MongoStore = require('connect-mongo'); //https://www.npmjs.com/package/connect-mongo
+
+//dbUrl for local : 'mongodb://localhost:27017/yelp-camp'
+//dbUrl for prod : process.env.DB_URL
+const dbUrl = process.env.DB_URL || 'mongodb://localhost:27017/yelp-camp';
 
 mongoose.set('strictQuery', false);
 
-mongoose.connect('mongodb://localhost:27017/yelp-camp')
+mongoose.connect(dbUrl)
     .then(() => {
         console.log("MONGO CONNECTION OPEN!!!")
     })
@@ -46,9 +51,24 @@ app.use(methodOverride('_method'));  //we need this to make a put requests form 
 app.use(express.static(path.join(__dirname,'public')));
 app.use(mongoSanitize()); //https://www.npmjs.com/package/express-mongo-sanitize
 
+const secret = process.env.SECRET || 'thisshouldbeabettersecret';
+
+const store = MongoStore.create({
+    mongoUrl: dbUrl,
+    touchAfter: 24 * 60 * 60,  //in seconds
+    crypto: {
+        secret
+    }
+});
+
+store.on("error", function (e) {
+    console.log("SESSION STORE ERROR", e)
+})
+
 const sessionConfig = {
+    store,
     name: 'session',
-    secret: 'thisshouldbeabettersecret',
+    secret,
     resave: false,
     saveUninitialized: true,
     cookie: {

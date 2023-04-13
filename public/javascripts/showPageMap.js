@@ -8,6 +8,8 @@ const map = new mapboxgl.Map({
     zoom: 10, // starting zoom
 });
 
+map.addControl(new mapboxgl.NavigationControl());
+
 
 /* https://docs.mapbox.com/mapbox-gl-js/example/add-a-marker/ */
 /* const marker1 = new mapboxgl.Marker()

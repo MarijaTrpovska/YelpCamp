@@ -48,7 +48,7 @@
         </div>
     </div>
     <div class="col-6">
-      <div id='map' style='width: 400px; height: 300px;'></div>
+      <div id='map'></div>
       <% if (currentUser) { %>
       <h2>Leave a review</h2>
       <form action="/campgrounds/<%=campground._id%>/reviews" method="post" class="mb-3 validated-form" novalidate>  <!-- novalidate and class validated-form to trigger the validation that I have added  -->

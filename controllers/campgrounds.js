@@ -58,7 +58,6 @@ module.exports.renderEditFrom = async (req, res) => {
 
 module.exports.updateCampground = async (req,res) => {
     const {id} = req.params; //same as writing -> const id = req.params.id;
-    console.log(req.body)
     const campground = await Campground.findByIdAndUpdate(id, req.body.campground ); //or you can write it like below:
     //const campground = await Campground.findByIdAndUpdate(id, {...req.body.campground}); // we can use the spread operator here because we group things under "campground" in edit.ejs , look at: name="campground[title]" , name="campground[location]"
     const imgs = req.files.map(f => ({url: f.path, filename: f.filename}));

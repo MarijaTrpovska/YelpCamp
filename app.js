@@ -15,7 +15,8 @@ const methodOverride = require('method-override');  //to be able to use put, pat
 const passport = require('passport');
 const LocalStrategy = require('passport-local');
 const User = require('./models/user');
-
+const mongoSanitize = require('express-mongo-sanitize'); //for prevention of mongo injection   // https://www.npmjs.com/package/express-mongo-sanitize
+const helmet = require('helmet');  //security tool
 const userRoutes = require('./routes/users')
 const campgroundRoutes = require('./routes/campgrounds')
 const reviewRoutes = require('./routes/reviews')
@@ -42,20 +43,75 @@ app.set('views', path.join(__dirname,'views'));
 
 app.use(express.urlencoded({ extended: true}));  //we need this so it can parse the body of the request when creating a new entry (campground)
 app.use(methodOverride('_method'));  //we need this to make a put requests form the ejs templates form (mostly for the edit put request)
-app.use(express.static(path.join(__dirname,'public')))
+app.use(express.static(path.join(__dirname,'public')));
+app.use(mongoSanitize()); //https://www.npmjs.com/package/express-mongo-sanitize
 
 const sessionConfig = {
+    name: 'session',
     secret: 'thisshouldbeabettersecret',
     resave: false,
     saveUninitialized: true,
     cookie: {
         httpOnly: true,
+        //secure: true,
         expires: Date.now() + 1000 * 60 * 60 * 24 * 7, // expires in a week, the calculation is in miliseconds because Date.now() is a function in miliseconds
         maxAge: 1000 * 60 * 60 * 24 * 7
     }
 }
 app.use(session(sessionConfig));
 app.use(flash());
+
+app.use(helmet());
+
+const scriptSrcUrls = [
+    "https://stackpath.bootstrapcdn.com/",
+    "https://api.tiles.mapbox.com/",
+    "https://api.mapbox.com/",
+    "https://kit.fontawesome.com/",
+    "https://cdnjs.cloudflare.com/",
+    "https://cdn.jsdelivr.net",
+    
+];
+const styleSrcUrls = [
+    "https://kit-free.fontawesome.com/",
+    "https://stackpath.bootstrapcdn.com/",
+    "https://api.mapbox.com/",
+    "https://api.tiles.mapbox.com/",
+    "https://fonts.googleapis.com/",
+    "https://use.fontawesome.com/",
+    "https://cdn.jsdelivr.net",
+    
+];
+const connectSrcUrls = [
+    "https://api.mapbox.com/",
+    "https://a.tiles.mapbox.com/",
+    "https://b.tiles.mapbox.com/",
+    "https://events.mapbox.com/",
+    "https://cdn.jsdelivr.net",
+    
+];
+const fontSrcUrls = [];
+app.use(helmet.contentSecurityPolicy({
+    directives: {
+        defaultSrc: [],
+        connectSrc: ["'self'", ...connectSrcUrls],
+        scriptSrc: ["'unsafe-inline'", "'self'", ...scriptSrcUrls],
+        styleSrc: ["'self'", "'unsafe-inline'", ...styleSrcUrls],
+        workerSrc: ["'self'", "blob:"],
+        objectSrc: [],
+        imgSrc: [
+            "'self'",
+            "blob:",
+            "data:",
+            "https://res.cloudinary.com/dmpovndvi/", //SHOULD MATCH YOUR CLOUDINARY ACCOUNT! 
+            "https://images.unsplash.com/",
+        ],
+        fontSrc: ["'self'", ...fontSrcUrls],
+        upgradeInsecureRequests: [],
+    },
+}));
+
+app.use(helmet.crossOriginEmbedderPolicy({ policy: "credentialless" }));
 
 app.use(passport.initialize());
 app.use(passport.session()); //for persistant log in sessions, other option is to log in in every single request (which is used in APIs but not as a user), use this after sessiong configuration (app.use(session(sessionConfig));)

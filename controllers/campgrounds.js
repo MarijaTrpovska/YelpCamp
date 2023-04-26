@@ -5,7 +5,7 @@ const geocoder = mbxGeocoding({ accessToken: mapBoxToken});  //https://github.co
 const { cloudinary } = require("../cloudinary"); 
 
 module.exports.index = async (req, res) => { 
-    const campgrounds = await Campground.find({});
+    const campgrounds = await Campground.find({}).sort({"_id": 1}); //sorting accending order
     res.render('campgrounds/index', { campgrounds })
 }
 
